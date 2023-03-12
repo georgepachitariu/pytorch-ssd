@@ -1,5 +1,6 @@
 from .voc0712 import VOCDetection, AnnotationTransform, detection_collate, VOC_CLASSES
 from .kitti import KittiLoader, AnnotationTransform_kitti,Class_to_ind,KITTI_CLASSES
+from .seeing_through_fog import STFLoader, AnnotationTransform_stf, Class_to_ind_stf, STF_CLASSES
 
 from .config import *
 import cv2

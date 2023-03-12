@@ -9,7 +9,8 @@ import argparse
 from torch.autograd import Variable
 import torch.utils.data as data
 from data import AnnotationTransform, VOCDetection, detection_collate, VOCroot, VOC_CLASSES
-from data import KittiLoader, AnnotationTransform_kitti,Class_to_ind
+from data import KittiLoader, AnnotationTransform_kitti
+from data import STFLoader, AnnotationTransform_stf, STF_CLASSES
 
 from utils.augmentations import SSDAugmentation
 from layers.modules import MultiBoxLoss
@@ -57,6 +58,8 @@ if args.dataset=='VOC':
     num_classes = len(VOC_CLASSES) + 1
 elif args.dataset=='kitti':
     num_classes = 1+1
+elif args.dataset=='stf':
+    num_classes = len(STF_CLASSES) + 1 # TODO is +1 necessary?
 accum_batch_size = 32
 iter_size = accum_batch_size / args.batch_size
 stepvalues = (60000, 80000, 100000)
@@ -121,6 +124,11 @@ def DatasetSync(dataset='VOC',split='training'):
         dataset = KittiLoader(DataRoot, split=split,img_size=(1000,300),
                   transforms=SSDAugmentation((1000,300),means),
                   target_transform=AnnotationTransform_kitti())
+    elif dataset=='stf':
+        # TODO is img_size = 1000,300 ? 
+        dataset = STFLoader(args.data_root, split=split,img_size=(1000,300),
+                  transforms=SSDAugmentation((1000,300),means),
+                  target_transform=AnnotationTransform_stf())
     return dataset
 
 def train():
@@ -163,7 +171,8 @@ def train():
         )
     batch_iterator = None
     data_loader = data.DataLoader(dataset, args.batch_size, num_workers=args.num_workers,
-                                  shuffle=True, collate_fn=detection_collate, pin_memory=True)
+                                  shuffle=True, collate_fn=detection_collate, pin_memory=True,
+                                  generator=torch.Generator(device='cuda'))
 
     lr=args.lr
     for iteration in range(start_iter, args.iterations + 1):

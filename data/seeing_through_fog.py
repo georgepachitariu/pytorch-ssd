@@ -13,18 +13,18 @@ import random
 import cv2
 from torch.utils import data
 
-KITTI_CLASSES= [
-    'BG','Car','Van','Truck',
-    'Pedestrian','Person_sitting',
-    'Cyclist','Tram','Misc','DontCare'
+STF_CLASSES= [
+    'PassengerCar', 'LargeVehicle', 'RidableVehicle',
+    'Pedestrian', 'DontCare',
+    'Pedestrian_is_group', 'Obstacle', 'Vehicle'
     ]
 
 
-class Class_to_ind(object):
+class Class_to_ind_stf(object):
     def __init__(self,binary,binary_item):
         self.binary=binary
         self.binary_item=binary_item
-        self.classes=KITTI_CLASSES
+        self.classes=STF_CLASSES
 
     def __call__(self, name):
         if not name in self.classes:
@@ -37,23 +37,19 @@ class Class_to_ind(object):
                     return False
             else:
                 return self.classes.index(name)
-# def get_data_path(name):
-#     js = open('config.json').read()
-#     data = json.loads(js)
-#     return data[name]['data_path']
 
-class AnnotationTransform_kitti(object):
+class AnnotationTransform_stf(object):
     '''
     Transform Kitti detection labeling type to norm type:
-    source:       Car 0.00 0 1.55 614.24 181.78 727.31 284.77 1.57 1.73 4.15 1.00  1.75 13.22 1.62
-    STF: PassengerCar 0.00 2 -1   421.56 486.74 693.47 599.85 1.35 1.75 3.72 -5.54 1.11 30.04 0.852 0.000 0.000 2.423 1.00 0.0000000000 0.0000000000 0.9361579423 0.3515797308 True True True False
+    source: Car          0.00 0 1.55 614.24 181.78 727.31 284.77 1.57 1.73 4.15 1.00  1.75 13.22 1.62
+    STF:    PassengerCar 0.00 2 -1   421.56 486.74 693.47 599.85 1.35 1.75 3.72 -5.54 1.11 30.04 0.852 0.000 0.000 2.423 1.00 0.0000000000 0.0000000000 0.9361579423 0.3515797308 True True True False
 
     target: [xmin,ymin,xmax,ymax,label_ind]
 
     levels=['easy','medium']
     '''
-    def __init__(self,class_to_ind=Class_to_ind(True,'Car'),levels=['easy','medium','hard']):
-        self.class_to_ind=class_to_ind
+    def __init__(self,Class_to_ind_stf=Class_to_ind_stf(True,'Car'),levels=['easy','medium','hard']):
+        self.Class_to_ind_stf=Class_to_ind_stf
         self.levels=levels if isinstance(levels,list) else [levels]
 
     def __call__(self,target_lines,width,height):
@@ -67,12 +63,13 @@ class AnnotationTransform_kitti(object):
                 cur_pt=float(bnd_box[i])
                 cur_pt = cur_pt / width if i % 2 == 0 else cur_pt / height
                 new_bnd_box.append(cur_pt)
-            label_idx=self.class_to_ind(line.split(' ')[0])
+            label_idx=self.Class_to_ind_stf(line.split(' ')[0])
             new_bnd_box.append(label_idx)
             res.append(new_bnd_box)
         return res
 
-class KittiLoader(data.Dataset):
+class STFLoader(data.Dataset):
+    # TODO: Is img_size in STF 512?
     def __init__(self, root, split="training",
                  img_size=512, transforms=None,target_transform=None):
         self.root = root
@@ -80,19 +77,19 @@ class KittiLoader(data.Dataset):
         self.target_transform = target_transform
         self.n_classes = 2
         self.img_size = img_size if isinstance(img_size, tuple) else (img_size, img_size)
-        self.mean = np.array([104.00699, 116.66877, 122.67892])
+        self.mean = np.array([104.00699, 116.66877, 122.67892]) # TODO
         self.files = collections.defaultdict(list)
         self.labels = collections.defaultdict(list)
         self.transforms = transforms
-        self.name='kitti'
+        self.name='stf'
 
-        for split in ["training", "testing"]:
-            file_list = glob(os.path.join(root, split, 'image_2', '*.png'))
-            self.files[split] = file_list
+        # TODO these are all files;
+        # You need to split them in train & test
+        file_list = glob(os.path.join(root, 'cam_stereo_left_lut', '*.png'))
+        self.files["training"] = file_list
 
-            if not split=='testing':
-                label_list=glob(os.path.join(root, split, 'label_2', '*.txt'))
-                self.labels[split] = label_list
+        label_list=glob(os.path.join(root, 'cam_left_labels_TMP', '*.txt'))
+        self.labels["training"] = label_list
 
 
     def __len__(self):
